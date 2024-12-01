@@ -8,7 +8,7 @@
 
 ## Description
 
-compute the minimum bounding box (2D)
+Computes the minimum-area oriented bounding rectangle (2D) using the rotating calipers algorithm
 
 ## How to use
 
