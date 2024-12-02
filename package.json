@@ -6,13 +6,13 @@
   "description": "compute the minimum bounding box",
   "author": "Anthony Fu <anthonyfu117@hotmail.com>",
   "license": "MIT",
-  "funding": "https://github.com/sponsors/bjorn",
-  "homepage": "https://github.com/bjorn/min-rect#readme",
+  "funding": "https://github.com/sponsors/lxxorz",
+  "homepage": "https://github.com/lxxorz/min-rect#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/bjorn/min-rect.git"
+    "url": "git+https://github.com/lxxorz/min-rect.git"
   },
-  "bugs": "https://github.com/bjorn/min-rect/issues",
+  "bugs": "https://github.com/lxxorz/min-rect/issues",
   "keywords": [],
   "sideEffects": false,
   "exports": {

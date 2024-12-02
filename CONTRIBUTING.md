@@ -1,1 +1,1 @@
-Please refer to https://github.com/bjorn/contribute
+Please refer to https://github.com/lxxorz/contribute

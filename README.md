@@ -36,7 +36,7 @@ console.log(mbr)
 
 ## License
 
-[MIT](./LICENSE) License © 2024-PRESENT [Bjorn](https://github.com/bjorn)
+[MIT](./LICENSE) License © 2024-PRESENT [Bjorn](https://github.com/lxxorz)
 
 <!-- Badges -->
 
@@ -46,7 +46,7 @@ console.log(mbr)
 [npm-downloads-href]: https://npmjs.com/package/min-rect
 [bundle-src]: https://img.shields.io/bundlephobia/minzip/min-rect?style=flat&colorA=080f12&colorB=1fa669&label=minzip
 [bundle-href]: https://bundlephobia.com/result?p=min-rect
-[license-src]: https://img.shields.io/github/license/bjorn/min-rect.svg?style=flat&colorA=080f12&colorB=1fa669
-[license-href]: https://github.com/bjorn/min-rect/blob/main/LICENSE
+[license-src]: https://img.shields.io/github/license/lxxorz/min-rect.svg?style=flat&colorA=080f12&colorB=1fa669
+[license-href]: https://github.com/lxxorz/min-rect/blob/main/LICENSE
 [jsdocs-src]: https://img.shields.io/badge/jsdocs-reference-080f12?style=flat&colorA=080f12&colorB=1fa669
 [jsdocs-href]: https://www.jsdocs.io/package/min-rect
