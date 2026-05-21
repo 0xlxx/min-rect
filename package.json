@@ -1,7 +1,7 @@
 {
   "name": "min-rect",
   "type": "module",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "packageManager": "pnpm@9.14.3",
   "description": "compute the minimum bounding box",
   "author": "Anthony Fu <anthonyfu117@hotmail.com>",
