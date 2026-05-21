@@ -7,6 +7,24 @@ export class Vector2 {
     this.y = y
   }
 
+  set(x: number, y: number): this {
+    this.x = x
+    this.y = y
+    return this
+  }
+
+  copyFrom(other: Vector2): this {
+    this.x = other.x
+    this.y = other.y
+    return this
+  }
+
+  setFromSub(a: Vector2, b: Vector2): this {
+    this.x = a.x - b.x
+    this.y = a.y - b.y
+    return this
+  }
+
   dot(other: Vector2): number {
     return this.x * other.x + this.y * other.y
   }
