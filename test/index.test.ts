@@ -344,6 +344,272 @@ describe('mBR', () => {
   })
 })
 
+describe('edge cases', () => {
+  it('empty input yields an empty hull and a zero box', () => {
+    const mbr = new MBR()
+
+    expect(mbr.grahamScan([])).toEqual([])
+
+    mbr.fromPoints([])
+    expect(mbr.halfSize.x).toBe(0)
+    expect(mbr.halfSize.y).toBe(0)
+    expect(mbr.center.x).toBe(0)
+    expect(mbr.center.y).toBe(0)
+    expect(mbr.rotation).toBe(0)
+  })
+
+  it('single point yields a one-vertex hull and a zero box', () => {
+    const mbr = new MBR()
+    const p = new Vector2(3, -4)
+
+    expect(mbr.grahamScan([p])).toEqual([p])
+
+    mbr.fromPoints([p])
+    expect(mbr.halfSize.x).toBe(0)
+    expect(mbr.halfSize.y).toBe(0)
+  })
+
+  it('all points identical yields a single-vertex hull (no undefined entry)', () => {
+    const mbr = new MBR()
+    const p = new Vector2(1, 2)
+
+    const hull = mbr.grahamScan([p, p, p])
+    expect(hull).toEqual([p])
+    expect(hull).toHaveLength(1)
+
+    mbr.fromPoints([p, p, p])
+    expect(mbr.halfSize.x).toBe(0)
+    expect(mbr.halfSize.y).toBe(0)
+  })
+
+  it('two distinct points keep the bottom-most point first', () => {
+    const mbr = new MBR()
+    const a = new Vector2(0, 1)
+    const b = new Vector2(1, 0)
+
+    expect(mbr.grahamScan([a, b])).toEqual([b, a])
+    expect(mbr.grahamScan([b, a])).toEqual([b, a])
+  })
+
+  it('resets the box when called again with an empty input', () => {
+    const mbr = new MBR()
+    mbr.fromPoints([new Vector2(0, 0), new Vector2(2, 0), new Vector2(2, 1), new Vector2(0, 1)])
+    expect(mbr.halfSize.x).toBeCloseTo(1)
+
+    mbr.fromPoints([])
+    expect(mbr.halfSize.x).toBe(0)
+    expect(mbr.halfSize.y).toBe(0)
+    expect(mbr.center.x).toBe(0)
+    expect(mbr.center.y).toBe(0)
+    expect(mbr.rotation).toBe(0)
+  })
+
+  it('terminates on a degenerate collinear hull (regression: infinite loop)', () => {
+    const mbr = new MBR()
+    const collinear = [0, 1, 2, 3].map(i => new Vector2(i, i * 2))
+
+    const result = mbr.rotatingCalipers(collinear)
+
+    expect(result.halfSize.x).toBe(0)
+    expect(result.halfSize.y).toBe(0)
+    expect(result.center.x).toBe(0)
+    expect(result.center.y).toBe(0)
+    expect(result.rotation).toBe(0)
+  }, 2000)
+
+  it('terminates on a hull of identical vertices and produces no NaN', () => {
+    const mbr = new MBR()
+    const p = new Vector2(5, 5)
+    const result = mbr.rotatingCalipers([p, p, p])
+
+    expect(Number.isNaN(result.halfSize.x)).toBe(false)
+    expect(Number.isNaN(result.halfSize.y)).toBe(false)
+    expect(result.halfSize.x).toBe(0)
+    expect(result.halfSize.y).toBe(0)
+  }, 2000)
+
+  it('handles a large collinear input without hanging', () => {
+    const mbr = new MBR()
+    const points = Array.from({ length: 5000 }, (_, i) => new Vector2(i, i))
+
+    expect(() => mbr.fromPoints(points)).not.toThrow()
+    expect(mbr.halfSize.x).toBe(0)
+    expect(mbr.halfSize.y).toBe(0)
+  }, 5000)
+
+  it('does not mutate the input array', () => {
+    const mbr = new MBR()
+    const points = randomPoints(1000, 100, 7)
+    const snapshot = points.slice()
+
+    mbr.fromPoints(points)
+
+    expect(points).toEqual(snapshot)
+  })
+
+  it('handles duplicate-heavy inputs', () => {
+    const mbr = new MBR()
+    const points = [...circlePoints(100, 5), ...circlePoints(100, 5)]
+
+    mbr.fromPoints(points)
+
+    // the duplicates collapse; the result is the same as the unique set
+    const unique = new MBR()
+    unique.fromPoints(circlePoints(100, 5))
+    expect(mbr.halfSize.x).toBeCloseTo(unique.halfSize.x)
+    expect(mbr.halfSize.y).toBeCloseTo(unique.halfSize.y)
+  })
+})
+
+describe('prefilter invariants', () => {
+  // Datasets on both sides of the prefilter threshold, plus hull-heavy input
+  // where the prefilter must decline to run.
+  const datasets: [string, Vector2[]][] = [
+    ['random 120 (below threshold)', randomPoints(120, 10, 11)],
+    ['random 600', randomPoints(600, 20, 14)],
+    ['random 1k', randomPoints(1000, 100, 12)],
+    ['random 20k', randomPoints(20000, 1000, 13)],
+    ['grid 64x64', Array.from({ length: 4096 }, (_, i) => new Vector2(i % 64, Math.floor(i / 64)))],
+    ['circle 5k', circlePoints(5000, 10)],
+  ]
+
+  for (const [name, points] of datasets) {
+    it(`selects the same hull with and without the prefilter (${name})`, () => {
+      const mbr = new MBR()
+      const hull = mbr.grahamScan(points)
+      const reference = referenceHull(points)
+
+      expect(hullKey(hull)).toBe(hullKey(reference))
+    })
+
+    it(`matches the brute-force minimum area (${name})`, () => {
+      const mbr = new MBR()
+      mbr.fromPoints(points)
+
+      const area = 4 * mbr.halfSize.x * mbr.halfSize.y
+      const reference = referenceMinArea(points)
+
+      expect(Math.abs(area - reference) / reference).toBeLessThan(1e-9)
+    })
+
+    it(`contains every point (${name})`, () => {
+      const mbr = new MBR()
+      mbr.fromPoints(points)
+
+      const cos = Math.cos(-mbr.rotation)
+      const sin = Math.sin(-mbr.rotation)
+      for (const p of points) {
+        const dx = p.x - mbr.center.x
+        const dy = p.y - mbr.center.y
+        const localX = Math.abs(dx * cos - dy * sin)
+        const localY = Math.abs(dx * sin + dy * cos)
+        expect(localX).toBeLessThanOrEqual(mbr.halfSize.x + 1e-9)
+        expect(localY).toBeLessThanOrEqual(mbr.halfSize.y + 1e-9)
+      }
+    })
+  }
+})
+
+// --- independent reference implementations, deliberately not sharing code ---
+
+function hullKey(hull: Vector2[]): string {
+  return hull.map(p => `${p.x},${p.y}`).sort().join(';')
+}
+
+function turn(o: Vector2, a: Vector2, b: Vector2): number {
+  return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
+}
+
+/** Andrew's monotone chain, used only as a test oracle. */
+function referenceHull(points: Vector2[]): Vector2[] {
+  const sorted = points.slice().sort((a, b) => a.x - b.x || a.y - b.y)
+  const unique: Vector2[] = []
+  for (const p of sorted) {
+    const last = unique[unique.length - 1]
+    if (!last || last.x !== p.x || last.y !== p.y)
+      unique.push(p)
+  }
+  if (unique.length < 3)
+    return unique
+
+  const lower: Vector2[] = []
+  for (const p of unique) {
+    while (lower.length >= 2 && turn(lower[lower.length - 2], lower[lower.length - 1], p) <= 0)
+      lower.pop()
+    lower.push(p)
+  }
+  const upper: Vector2[] = []
+  for (let i = unique.length - 1; i >= 0; i--) {
+    const p = unique[i]
+    while (upper.length >= 2 && turn(upper[upper.length - 2], upper[upper.length - 1], p) <= 0)
+      upper.pop()
+    upper.push(p)
+  }
+  lower.pop()
+  upper.pop()
+  return lower.concat(upper)
+}
+
+/** Brute force: one candidate rectangle per hull edge, O(h * n). */
+function referenceMinArea(points: Vector2[]): number {
+  const hull = referenceHull(points)
+  if (hull.length < 3)
+    return 0
+
+  let best = Infinity
+  for (let i = 0; i < hull.length; i++) {
+    const a = hull[i]
+    const b = hull[(i + 1) % hull.length]
+    const ex = b.x - a.x
+    const ey = b.y - a.y
+    const length = Math.hypot(ex, ey)
+    if (length === 0)
+      continue
+    const ux = ex / length
+    const uy = ey / length
+
+    let minU = Infinity
+    let maxU = -Infinity
+    let minV = Infinity
+    let maxV = -Infinity
+    for (const p of points) {
+      const u = p.x * ux + p.y * uy
+      const v = -p.x * uy + p.y * ux
+      if (u < minU)
+        minU = u
+      if (u > maxU)
+        maxU = u
+      if (v < minV)
+        minV = v
+      if (v > maxV)
+        maxV = v
+    }
+
+    const area = (maxU - minU) * (maxV - minV)
+    if (area < best)
+      best = area
+  }
+  return best
+}
+
+function randomPoints(n: number, range: number, seed: number): Vector2[] {
+  const rnd = mulberry32(seed)
+  const out: Vector2[] = []
+  for (let i = 0; i < n; i++)
+    out.push(new Vector2((rnd() - 0.5) * 2 * range, (rnd() - 0.5) * 2 * range))
+  return out
+}
+
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0
+  return () => {
+    a = (a + 0x6D2B79F5) >>> 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
 function circlePoints(n: number, radius: number): Vector2[] {
   const pts: Vector2[] = []
   for (let i = 0; i < n; i++) {
