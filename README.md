@@ -1,6 +1,6 @@
 # min-rect
 
-Computes the minimum-area oriented bounding rectangle (2D) using the rotating calipers algorithm.
+Computes the exact minimum-area oriented bounding rectangle of a set of 2D points, using a convex hull plus rotating calipers. No dependencies.
 
 ## Install
 
@@ -46,8 +46,10 @@ The minimum bounding rectangle instance. Call `fromPoints()` to compute.
 | Method | Description |
 |--------|-------------|
 | `fromPoints(points: Vector2[])` | Compute the MBR from a set of 2D points |
-| `grahamScan(points: Vector2[])` | Compute the convex hull (Graham scan) |
+| `grahamScan(points: Vector2[])` | Compute the convex hull (Graham scan, interior points prefiltered for large inputs) |
 | `rotatingCalipers(hull: Vector2[])` | Find the minimum-area rectangle for a convex hull |
+
+`fromPoints` writes into the instance properties. `rotatingCalipers` returns the result without touching them. A zero-size box is returned for fewer than three distinct points, and for inputs where every point is collinear.
 
 ### `new Vector2(x, y)`
 
@@ -56,6 +58,23 @@ The minimum bounding rectangle instance. Call `fromPoints()` to compute.
 ### Utility functions
 
 `getProj(point, edge)`, `getMinMaxProj(points, edge)`, `getCenter(points)` — exported for convenience.
+
+## How it works
+
+1. **Convex hull.** Only hull vertices can touch the minimum rectangle, so everything else is irrelevant. For inputs of 512+ points, an [Akl–Toussaint](https://www.sciencedirect.com/science/article/pii/0020019078900030) prefilter drops points that are strictly inside the octagon spanned by the 8 extreme points (`x`, `y`, `x+y`, `x−y`) before the Graham scan sorts anything. A 128-point sample decides whether the pass pays off, so hull-heavy inputs skip it.
+2. **Rotating calipers.** The optimal rectangle always has a side flush with a hull edge ([Freeman & Shapira, 1975](https://dl.acm.org/doi/10.1145/360881.360919)), and the four support points only move forward as that edge sweeps the hull, so all candidate orientations are checked in O(h) ([Toussaint, 1983](https://web.cs.swarthmore.edu/~adanner/cs97/s08/pdf/calipers.pdf)).
+
+Total cost is O(n log n) for the hull plus O(h) for the rectangle, where h is the number of hull vertices. Edges are kept unnormalized and areas are compared by cross-multiplication, so the calipers loop contains no `sqrt` and no division.
+
+## Performance
+
+Median throughput (`pnpm vitest bench`, Node 26, macOS):
+
+| Input | `fromPoints` |
+| --- | --- |
+| 20 points | ~1.1M ops/s |
+| 1,000 uniform points | ~32k ops/s |
+| 200 points on a circle (every point on the hull) | ~112k ops/s |
 
 ## License
 
